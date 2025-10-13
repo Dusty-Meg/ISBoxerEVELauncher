@@ -1146,7 +1146,7 @@ namespace ISBoxerEVELauncher.Games.EVE
                     return GetEmailChallenge(sisi, responseBody, out accessToken);
                 }
 
-                if (responseBody.Contains("Authenticator is enabled"))
+                if (responseBody.Contains("Authenticator is enabled") || responseBody.Contains("Two - Factor Authentication enabled.") || responseBody.Contains("Two-Factor Authentication enabled."))
                 {
                     return GetAuthenticatorChallenge(sisi, out accessToken);
                 }
