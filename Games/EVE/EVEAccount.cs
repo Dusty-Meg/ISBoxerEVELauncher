@@ -11,20 +11,109 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Net;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Web;
 using System.Xml.Serialization;
+using System.Collections.Generic;
+using System.Linq;
 
 
 namespace ISBoxerEVELauncher.Games.EVE
 {
+    public class CookieContainerSerializer
+    {
+        public class SerializableCookie
+        {
+            public string Name { get; set; }
+            public string Value { get; set; }
+            public string Domain { get; set; }
+            public string Path { get; set; }
+            public bool Expired { get; set; }
+            public bool HttpOnly { get; set; }
+            public bool Secure { get; set; }
+            public DateTime TimeStamp { get; set; }
+        }
 
+        public static string Serialize(CookieContainer container)
+        {
+            if (container == null)
+                return null;
 
-    /// <summary>
-    /// An EVE Online account and related data
-    /// </summary>
+            var cookies = new List<SerializableCookie>();
+            
+            var table = container.GetType().InvokeMember("m_domainTable",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.GetField | System.Reflection.BindingFlags.Instance,
+                null, container, []);
+
+            if (table != null)
+            {
+                foreach (var tableEntry in (System.Collections.IDictionary)table)
+                {
+                    var domain = tableEntry.GetType().GetProperty("Key").GetValue(tableEntry, null) as string;
+                    var paths = tableEntry.GetType().GetProperty("Value").GetValue(tableEntry, null);
+
+                    var pathTable = paths.GetType().InvokeMember("m_list",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.GetField | System.Reflection.BindingFlags.Instance,
+                        null, paths, []);
+
+                    foreach (var pathEntry in (System.Collections.IDictionary)pathTable)
+                    {
+                        var cookieList = (CookieCollection)pathEntry.GetType().GetProperty("Value").GetValue(pathEntry, null);
+                        foreach (Cookie cookie in cookieList)
+                        {
+                            cookies.Add(new SerializableCookie
+                            {
+                                Name = cookie.Name,
+                                Value = cookie.Value,
+                                Domain = cookie.Domain,
+                                Path = cookie.Path,
+                                Expired = cookie.Expired,
+                                HttpOnly = cookie.HttpOnly,
+                                Secure = cookie.Secure,
+                                TimeStamp = cookie.TimeStamp
+                            });
+                        }
+                    }
+                }
+            }
+
+            return JsonConvert.SerializeObject(cookies);
+        }
+
+        public static CookieContainer Deserialize(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return new CookieContainer();
+
+            var container = new CookieContainer();
+            var cookies = JsonConvert.DeserializeObject<List<SerializableCookie>>(json);
+
+            if (cookies != null)
+            {
+                foreach (var cookie in cookies)
+                {
+                    try
+                    {
+                        var c = new Cookie(cookie.Name, cookie.Value, cookie.Path, cookie.Domain)
+                        {
+                            Expired = cookie.Expired,
+                            HttpOnly = cookie.HttpOnly,
+                            Secure = cookie.Secure
+                        };
+                        container.Add(c);
+                    }
+                    catch
+                    {
+                        // Skip invalid cookies
+                    }
+                }
+            }
+
+            return container;
+        }
+    }
+
     public class EVEAccount : INotifyPropertyChanged, IDisposable, ILaunchTarget
     {
 
@@ -131,12 +220,16 @@ namespace ISBoxerEVELauncher.Games.EVE
                 {
                     if (!string.IsNullOrEmpty(NewCookieStorage))
                     {
-                        BinaryFormatter formatter = new BinaryFormatter();
-
-
-                        using (Stream s = new MemoryStream(Convert.FromBase64String(NewCookieStorage)))
+                        try
                         {
-                            _Cookies = (CookieContainer)formatter.Deserialize(s);
+                            // Try to decode as JSON first (new format)
+                            var json = Encoding.UTF8.GetString(Convert.FromBase64String(NewCookieStorage));
+                            _Cookies = CookieContainerSerializer.Deserialize(json);
+                        }
+                        catch
+                        {
+                            // Fallback for legacy data - just create new container
+                            _Cookies = new CookieContainer();
                         }
                     }
                     else
@@ -158,14 +251,14 @@ namespace ISBoxerEVELauncher.Games.EVE
                 return;
             }
 
-            using (MemoryStream ms = new MemoryStream())
+            try
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(ms, Cookies);
-                ms.Flush();
-                ms.Seek(0, SeekOrigin.Begin);
-
-                NewCookieStorage = Convert.ToBase64String(ms.ToArray());
+                var json = CookieContainerSerializer.Serialize(Cookies);
+                NewCookieStorage = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            }
+            catch
+            {
+                NewCookieStorage = null;
             }
 
         }

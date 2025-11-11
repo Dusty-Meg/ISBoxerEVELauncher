@@ -60,7 +60,7 @@ namespace ISBoxerEVELauncher.Windows
             Accounts = new ObservableCollection<ILaunchTarget>(accounts);
             AccountsLaunched = new ObservableCollection<ILaunchTarget>();
             Launcher = launcher;
-            AutoClose = true;
+            AutoClose = false;
             InitializeComponent();
         }
 

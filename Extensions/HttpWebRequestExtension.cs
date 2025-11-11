@@ -1,4 +1,5 @@
 ﻿using ISBoxerEVELauncher.Security;
+using ISBoxerEVELauncher.Web;
 using System;
 using System.IO;
 using System.Net;
@@ -55,8 +56,100 @@ namespace ISBoxerEVELauncher.Extensions
 
         public static void SetCustomheaders(this HttpWebRequest webRequest, WebHeaderCollection webHeaderCollection)
         {
-            var field = typeof(HttpWebRequest).GetField("_HttpRequestHeaders", BindingFlags.Instance | BindingFlags.NonPublic);
-            field.SetValue(webRequest, webHeaderCollection);
+            try
+            {
+                // Try reflection approach first (legacy compatibility)
+                var field = typeof(HttpWebRequest).GetField("_HttpRequestHeaders", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (field != null)
+                {
+                    field.SetValue(webRequest, webHeaderCollection);
+                    return;
+                }
+            }
+            catch
+            {
+                // Reflection failed, fall back to manual header copying
+            }
+
+            // Fallback: Copy headers manually (compatible with .NET 9)
+            if (webHeaderCollection is CustomWebHeaderCollection customHeaders)
+            {
+                // Extract custom headers from the CustomWebHeaderCollection
+                var customHeadersDict = customHeaders.GetType()
+                    .GetField("_customHeaders", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.GetValue(customHeaders) as System.Collections.Generic.Dictionary<string, string>;
+
+                if (customHeadersDict != null)
+                {
+                    foreach (var header in customHeadersDict)
+                    {
+                        try
+                        {
+                            // Set headers that can be set directly
+                            if (header.Key.Equals("User-Agent", StringComparison.OrdinalIgnoreCase))
+                            {
+                                webRequest.UserAgent = header.Value;
+                            }
+                            else if (header.Key.Equals("Referer", StringComparison.OrdinalIgnoreCase))
+                            {
+                                webRequest.Referer = header.Value;
+                            }
+                            else if (header.Key.Equals("Accept", StringComparison.OrdinalIgnoreCase))
+                            {
+                                webRequest.Accept = header.Value;
+                            }
+                            else if (header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
+                            {
+                                webRequest.ContentType = header.Value;
+                            }
+                            else
+                            {
+                                // For other headers, add to Headers collection
+                                webRequest.Headers.Add(header.Key, header.Value);
+                            }
+                        }
+                        catch
+                        {
+                            // Skip headers that can't be set
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Copy all headers from the WebHeaderCollection
+                foreach (string key in webHeaderCollection.AllKeys)
+                {
+                    try
+                    {
+                        string value = webHeaderCollection[key];
+                        if (key.Equals("User-Agent", StringComparison.OrdinalIgnoreCase))
+                        {
+                            webRequest.UserAgent = value;
+                        }
+                        else if (key.Equals("Referer", StringComparison.OrdinalIgnoreCase))
+                        {
+                            webRequest.Referer = value;
+                        }
+                        else if (key.Equals("Accept", StringComparison.OrdinalIgnoreCase))
+                        {
+                            webRequest.Accept = value;
+                        }
+                        else if (key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
+                        {
+                            webRequest.ContentType = value;
+                        }
+                        else
+                        {
+                            webRequest.Headers.Add(key, value);
+                        }
+                    }
+                    catch
+                    {
+                        // Skip headers that can't be set
+                    }
+                }
+            }
         }
     }
 

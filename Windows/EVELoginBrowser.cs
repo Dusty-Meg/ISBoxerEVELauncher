@@ -27,30 +27,43 @@ namespace ISBoxerEVELauncher.Windows
         //[DllImport("wininet.dll", CharSet = CharSet.Auto, SetLastError = true)]
         //public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, ref int flag, int dwBufferLength);
 
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strCurrentAddress
         {
             get; set;
         }
+        
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strHTML_RequestVerificationToken
         {
             get; set;
         }
+        
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strURL_RequestVerificationToken
         {
             get; set;
         }
+        
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strHTML_VerficationCode
         {
             get; set;
         }
+        
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strURL_VerficationCode
         {
             get; set;
         }
+        
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strHTML_Result
         {
             get; set;
         }
+        
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string strURL_Result
         {
             get; set;
